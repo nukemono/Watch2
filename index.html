@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Watch2 高精度CONTROL</title>
+<style>
+body{margin:0;background:#f6f7f8;color:#222;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.wrap{max-width:680px;margin:auto;padding:20px}.card{background:#fff;border:1px solid #ddd;border-radius:16px;padding:18px;margin-bottom:16px}h1{font-size:1.45rem;margin:0 0 8px}p{color:#555;line-height:1.65}.tag{display:inline-block;background:#eef1f4;padding:4px 8px;border-radius:999px;font-size:.75rem;margin-right:4px}.btn{display:block;text-decoration:none;text-align:center;border-radius:12px;padding:14px;font-weight:800;margin-top:14px;background:#d9480f;color:#fff}.note{background:#fff7dd;border:1px solid #ead274;border-radius:10px;padding:10px;line-height:1.6}
+</style>
+</head>
+<body><div class="wrap">
+<div class="card"><h1>☀️ Watch2 — 高精度CONTROL</h1><p>以前に精度が高かったと考えられる SolarWatch の測定ロジックを、A/B対照実験の基準として固定したリポジトリです。</p><div class="note"><strong>固定仕様:</strong> 背面カメラ3D光軸高度を主値に使用し、厳格な安定性・GPS品質ゲートを通過した測定だけで時刻を推定します。明示的な指示なしに測定ロジックを変更しません。</div></div>
+<div class="card"><p><span class="tag">iPhone</span><span class="tag">3D optical elevation</span><span class="tag">10秒 / 50ms</span><span class="tag">strict quality gate</span><span class="tag">CSV</span></p><p>太陽を照準し、方位・光軸高度・GPSを10秒間収集して、太陽位置との角距離から時刻を推定します。</p><a class="btn" href="iphone-field.html">高精度CONTROL測定を開く</a></div>
+<div class="card"><p>基準: <code>nukemono/Watch</code> PR #36 / measurement logic commit <code>fa45d6915e354bd6cb09b38640278ae6cc122c0f</code></p></div>
+</div></body></html>
