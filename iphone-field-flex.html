@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Watch2 iPhone 高精度版 — 水平0° / 手持ち測定</title>
+<style>
+body{margin:0;background:#f6f7f8;color:#222;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.wrap{max-width:720px;margin:40px auto;padding:20px}.card{background:#fff;border:1px solid #ddd;border-radius:14px;padding:18px}.bad{background:#fff0f0;border-color:#e0aaaa}pre{white-space:pre-wrap;word-break:break-word}
+</style>
+</head>
+<body>
+<div class="wrap"><div class="card" id="status">Watch2 高精度版を読み込んでいます…</div></div>
+<script>
+(async()=>{
+  const status=document.getElementById('status');
+  try{
+    let html=await fetch('iphone-field.html',{cache:'no-store'}).then(r=>{
+      if(!r.ok) throw new Error('iphone-field.html の取得に失敗: '+r.status);
+      return r.text();
+    });
+
+    const replaceOnce=(from,to,label)=>{
+      if(!html.includes(from)) throw new Error('パッチ対象が見つかりません: '+label);
+      html=html.replace(from,to);
+    };
+
+    // 1) ユーザー実測で、水平を向けたとき -90° になっていた基準を水平0°へ移す。
+    //    CONTROLの3D光軸計算は維持し、最終 elevation に +90° の基準補正だけを加える。
+    replaceOnce(
+      'elevation:Math.asin(Math.max(-1,Math.min(1,up)))*deg',
+      'elevation:Math.max(-90,Math.min(90,Math.asin(Math.max(-1,Math.min(1,up)))*deg+90))',
+      'camera elevation horizon offset'
+    );
+
+    replaceOnce('カメラ高度角 / 3D','カメラ高度角 / 水平0°','elevation label');
+    replaceOnce(
+      '安定性が1.5秒継続すると測定できます。',
+      '安定性は参考表示です。GPS・方位・高度角が取得できれば測定できます。',
+      'initial gate text'
+    );
+
+    // 2) 測定開始条件から「1.5秒安定」を外す。安定性の計算と表示は診断用として残す。
+    replaceOnce(
+      'const usable=state.started && gpsOk && finite(state.primaryHeading) && finite(state.cameraElevation) && stab.held;',
+      'const usable=state.started && gpsOk && finite(state.primaryHeading) && finite(state.cameraElevation);',
+      'render measurement gate'
+    );
+
+    replaceOnce(
+      "$('gateText').textContent=!state.location?'GPS待機中':!gpsOk?`GPS精度 ${state.location.accuracy.toFixed(0)}m：50m以下を待っています`:stab.held?'測定できます。太陽を中央に保って開始してください。':'安定性が1.5秒継続すると測定できます。';",
+      "$('gateText').textContent=!state.location?'GPS待機中':!gpsOk?`GPS精度 ${state.location.accuracy.toFixed(0)}m：50m以下を待っています`:'測定できます。手ブレ・安定性は参考値として記録します。';",
+      'render gate message'
+    );
+
+    replaceOnce(
+`    const stab=updateStability();
+    const gpsOk=state.location && finite(state.location.accuracy) && state.location.accuracy<=MAX_GPS_ACCURACY;
+    if(!stab.held||!gpsOk){ alert('安定性が「測定可」かつGPS精度50m以下になってから開始してください。'); return; }`,
+`    const stab=updateStability();
+    const gpsOk=state.location && finite(state.location.accuracy) && state.location.accuracy<=MAX_GPS_ACCURACY;
+    if(!gpsOk||!finite(state.primaryHeading)||!finite(state.cameraElevation)){ alert('GPS精度50m以下で、方位・高度角が取得できてから開始してください。'); return; }`,
+      'record start gate'
+    );
+
+    // 3) 手ブレや方位SDの増加で10秒測定を途中終了しない。
+    //    readiness / rotation / SD はCSVと結果表示には残す。
+    replaceOnce(
+`      const q=sampleQuality(sample);
+      if(q.hard){ state.recordAbortReason=q.reason; finishRecord(true); return; }
+      if(!q.ok){
+        if(state.recordUnstableSince===null)state.recordUnstableSince=performance.now();
+        if(performance.now()-state.recordUnstableSince>=RECORD_UNSTABLE_GRACE_MS){ state.recordAbortReason=q.reason; finishRecord(true); return; }
+      }else state.recordUnstableSince=null;`,
+`      // 手持ち測定を許可するため、揺れ・回転・方位SDは診断値としてのみ記録する。
+      // 10秒間の測定は途中中断せず継続する。`,
+      'record instability abort'
+    );
+
+    // 4) 結果判定でも安定性を必須条件にしない。
+    //    サンプル不足・GPS不足・観測値欠損だけを無効条件として残す。
+    replaceOnce(
+`    if(aborted)reasons.push(state.recordAbortReason||'測定中に端末が不安定になりました');
+    if(state.samples.length<MIN_SAMPLE_COUNT)reasons.push(`+'`サンプル不足 ${state.samples.length}/${MIN_SAMPLE_COUNT}`'+`);
+    if(!finite(hs.sd)||hs.sd>FINAL_HEADING_SD_MAX)reasons.push(`+'`方位SD ${finite(hs.sd)?hs.sd.toFixed(1):\'--\'}°`'+`);
+    if(!finite(es.sd)||es.sd>FINAL_ELEV_SD_MAX)reasons.push(`+'`高度SD ${finite(es.sd)?es.sd.toFixed(1):\'--\'}°`'+`);
+    if(readyRatio<MIN_READY_RATIO)reasons.push(`+'`安定サンプル率 ${(readyRatio*100).toFixed(0)}%`'+`);
+    if(!loc||!finite(loc.accuracy)||loc.accuracy>MAX_GPS_ACCURACY)reasons.push(`+'`GPS精度 ${loc&&finite(loc.accuracy)?loc.accuracy.toFixed(0):\'--\'}m`'+`);`,
+`    if(aborted)reasons.push(state.recordAbortReason||'測定を中断しました');
+    if(state.samples.length<MIN_SAMPLE_COUNT)reasons.push(`+'`サンプル不足 ${state.samples.length}/${MIN_SAMPLE_COUNT}`'+`);
+    if(!finite(hs.mean)||!finite(es.mean))reasons.push('方位または高度角の平均を算出できません');
+    if(!loc||!finite(loc.accuracy)||loc.accuracy>MAX_GPS_ACCURACY)reasons.push(`+'`GPS精度 ${loc&&finite(loc.accuracy)?loc.accuracy.toFixed(0):\'--\'}m`'+`);`,
+      'final stability validation'
+    );
+
+    html=html.replace(
+      '<h1 style="margin-top:12px">☀️ iPhone 屋外統合検証 v2</h1>',
+      '<h1 style="margin-top:12px">☀️ Watch2 iPhone 高精度版 v2.1</h1>'
+    );
+    html=html.replace(
+      '測定前の安定待ちと測定中の品質監視',
+      '3D光軸高度の水平0°補正と、手持ち測定対応'
+    );
+
+    document.open();
+    document.write(html);
+    document.close();
+  }catch(e){
+    status.className='card bad';
+    status.innerHTML='<strong>読み込みエラー</strong><pre>'+String(e&&e.stack||e)+'</pre>';
+  }
+})();
+</script>
+</body>
+</html>
