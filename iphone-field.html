@@ -169,6 +169,19 @@ body{margin:0;background:#f6f7f8;color:#222;font-family:-apple-system,BlinkMacSy
       'WMM sample fields'
     );
 
+    // 測定者が見る数値は方位・高度だけに絞る。
+    // hidden にするだけなので内部取得・CSV記録・検証用処理はそのまま残す。
+    for(const [from,to,label] of [
+      ['<div class="metric"><div class="label">raw webkitCompass</div><div id="rawHeading" class="value">--</div></div>','<div class="metric hidden"><div class="label">raw webkitCompass</div><div id="rawHeading" class="value">--</div></div>','hide raw heading'],
+      ['<div class="metric"><div class="label">Compass Accuracy</div><div id="compassAccuracy" class="value">--</div></div>','<div class="metric hidden"><div class="label">Compass Accuracy</div><div id="compassAccuracy" class="value">--</div></div>','hide compass accuracy'],
+      ['<div class="metric"><div class="label">beta姿勢角 0–360</div><div id="beta360" class="value">--</div></div>','<div class="metric hidden"><div class="label">beta姿勢角 0–360</div><div id="beta360" class="value">--</div></div>','hide beta'],
+      ['<div class="metric"><div class="label">3Dカメラ方位 診断</div><div id="camera3dHeading" class="value">--</div></div>','<div class="metric hidden"><div class="label">3Dカメラ方位 診断</div><div id="camera3dHeading" class="value">--</div></div>','hide 3d heading'],
+      ['<div class="metric"><div class="label">GPS精度</div><div id="gpsAccuracy" class="value">--</div></div>','<div class="metric hidden"><div class="label">GPS精度</div><div id="gpsAccuracy" class="value">--</div></div>','hide gps accuracy'],
+      ['<div class="metric"><div class="label">回転速度 最大軸</div><div id="rotationRate" class="value">--</div></div>','<div class="metric hidden"><div class="label">回転速度 最大軸</div><div id="rotationRate" class="value">--</div></div>','hide rotation'],
+      ['<div class="muted mono" id="sourceText">方位ソース: --</div>','<div class="muted mono hidden" id="sourceText">方位ソース: --</div>','hide source'],
+      ['<div id="flipText" class="muted mono">180°補正: --</div>','<div id="flipText" class="muted mono hidden">180°補正: --</div>','hide flip']
+    ]) replaceOnce(from,to,label);
+
     // 表示だけWatch2に統一。既存の2D高度角・手持ち測定ルールは維持する。
     html=html.replace('<title>太陽ウォッチ iPhone 屋外統合検証 v2</title>','<title>Watch2 — 高精度再現版</title>');
     html=html.replace('<h1 style="margin-top:12px">☀️ iPhone 屋外統合検証 v2</h1>','<h1 style="margin-top:12px">☀️ Watch2 — 高精度再現版</h1>');
