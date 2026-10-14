@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>Watch2 iPhone beta高度角版</title>
+<title>Watch2 iPhone 2D高度角版</title>
 <style>
 body{margin:0;background:#f6f7f8;color:#222;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.wrap{max-width:720px;margin:40px auto;padding:20px}.card{background:#fff;border:1px solid #ddd;border-radius:14px;padding:18px}.bad{background:#fff0f0;border-color:#e0aaaa}pre{white-space:pre-wrap;word-break:break-word}
 </style>
 </head>
 <body>
-<div class="wrap"><div class="card" id="status">Watch2 beta高度角版を読み込んでいます…</div></div>
+<div class="wrap"><div class="card" id="status">Watch2 2D高度角版を読み込んでいます…</div></div>
 <script>
 (async()=>{
   const status=document.getElementById('status');
@@ -24,7 +24,7 @@ body{margin:0;background:#f6f7f8;color:#222;font-family:-apple-system,BlinkMacSy
       html=html.replace(from,to);
     };
 
-    // 3D光軸高度は主値に使わず、現行Watchと同じ beta 基準高度を使用する。
+    // 3D光軸高度は主値に使わず、DeviceOrientation beta を2D角として0〜360°で使用する。
     replaceOnce(
 `  function betaElevation360(){
     if(!finite(state.b)) return null;
@@ -36,27 +36,28 @@ body{margin:0;background:#f6f7f8;color:#222;font-family:-apple-system,BlinkMacSy
     return norm(state.b);
   }
 
-  function normalElevationFromBeta(){
+  function cameraElevation2DFromBeta(){
     if(!finite(state.b)) return null;
-    // 非3D方式：DeviceOrientation beta を高度角の主値として使用。
-    // 現行 Watch と同じ方式。3D光軸高度は診断値としてのみ残す。
-    return Math.abs(state.b);
+    // 2D方式：水平を0°とし、betaを一周0〜360°で連続処理する。
+    // 液晶面を手前側へ持ち上げる方向で 0° → 90° → 180° に近づく。
+    // 180°を越えた後も 270° → 360°(=0°) として一周を保持する。
+    return norm(state.b);
   }
 `,
-      'insert beta elevation function'
+      'insert 2D elevation function'
     );
 
     replaceOnce(
       'state.cameraElevation=state.camera3d && finite(state.camera3d.elevation) ? state.camera3d.elevation : null;',
-      'state.cameraElevation=normalElevationFromBeta();',
+      'state.cameraElevation=cameraElevation2DFromBeta();',
       'primary elevation source'
     );
 
-    replaceOnce('カメラ高度角 / 3D','高度角（beta基準 / 非3D）','elevation label');
+    replaceOnce('カメラ高度角 / 3D','カメラ高度角 / 2D','elevation label');
 
     replaceOnce(
       'camera3d_elevation_deg:state.camera3d?.elevation??null,',
-      'phone_elevation_deg:state.cameraElevation,\n      camera3d_optical_elevation_deg:state.camera3d?.elevation??null,',
+      'phone_elevation_deg:state.cameraElevation,\n      camera2d_elevation_deg:state.cameraElevation,\n      camera3d_optical_elevation_deg:state.camera3d?.elevation??null,',
       'sample elevation fields'
     );
 
@@ -74,11 +75,11 @@ body{margin:0;background:#f6f7f8;color:#222;font-family:-apple-system,BlinkMacSy
 
     html=html.replace(
       '<h1 style="margin-top:12px">☀️ iPhone 屋外統合検証 v2</h1>',
-      '<h1 style="margin-top:12px">☀️ Watch2 iPhone beta高度角版</h1>'
+      '<h1 style="margin-top:12px">☀️ Watch2 iPhone 2D高度角版</h1>'
     );
     html=html.replace(
       '測定前の安定待ちと測定中の品質監視',
-      'beta基準の非3D高度角と、測定前の安定待ち・測定中の品質監視'
+      'beta基準の2D高度角（0〜360°）と、測定前の安定待ち・測定中の品質監視'
     );
 
     document.open();
