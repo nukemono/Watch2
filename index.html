@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Watch2 高精度CONTROL</title>
+<title>Watch2</title>
 <style>
 body{margin:0;background:#f6f7f8;color:#222;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.wrap{max-width:680px;margin:auto;padding:20px}.card{background:#fff;border:1px solid #ddd;border-radius:16px;padding:18px;margin-bottom:16px}h1{font-size:1.45rem;margin:0 0 8px}p{color:#555;line-height:1.65}.tag{display:inline-block;background:#eef1f4;padding:4px 8px;border-radius:999px;font-size:.75rem;margin-right:4px}.btn{display:block;text-decoration:none;text-align:center;border-radius:12px;padding:14px;font-weight:800;margin-top:14px;background:#d9480f;color:#fff}.btn.secondary{background:#eef1f4;color:#222}.note{background:#fff7dd;border:1px solid #ead274;border-radius:10px;padding:10px;line-height:1.6}
 </style>
 </head>
 <body><div class="wrap">
-<div class="card"><h1>☀️ Watch2 — 高精度CONTROL</h1><p>以前に精度が高かった状態をそのまま基準として使います。</p><div class="note"><strong>既定測定は元CONTROLです。</strong> `iphone-field.html` は基準コミット <code>fa45d6915e354bd6cb09b38640278ae6cc122c0f</code> と同一の blob を使用しています。</div></div>
-<div class="card"><p><span class="tag">iPhone</span><span class="tag">3D optical elevation</span><span class="tag">10秒 / 50ms</span><span class="tag">strict quality gate</span><span class="tag">CSV</span></p><a class="btn" href="iphone-field.html">元CONTROLで測定する</a><a class="btn secondary" href="iphone-field-flex.html">手持ち対応版を試す（高度計算はCONTROLと同一）</a></div>
-<div class="card"><p>基準: <code>nukemono/Watch</code> PR #36 / measurement logic commit <code>fa45d6915e354bd6cb09b38640278ae6cc122c0f</code></p></div>
+<div class="card"><h1>☀️ Watch2</h1><p>カメラ高度角は3D光軸ではなく、DeviceOrientation beta を基準にした非3D方式を主値にします。</p><div class="note"><strong>現在の既定:</strong> beta基準高度角。3D光軸高度は診断値としてのみ保持します。</div></div>
+<div class="card"><p><span class="tag">iPhone</span><span class="tag">beta elevation</span><span class="tag">non-3D</span><span class="tag">10秒 / 50ms</span><span class="tag">CSV</span></p><a class="btn" href="iphone-field-beta.html">非3D高度角版で測定する</a><a class="btn secondary" href="iphone-field.html">元CONTROL（3D光軸高度）を開く</a><a class="btn secondary" href="iphone-field-flex.html">手持ち対応版を開く</a></div>
+<div class="card"><p>非3D版は高度角の入力源だけを変更し、方位・GPS・時刻推定のロジックは元CONTROLを維持します。</p></div>
 </div></body></html>
