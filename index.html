@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Watch2</title>
 <style>
-body{margin:0;background:#f6f7f8;color:#222;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.wrap{max-width:680px;margin:auto;padding:20px}.card{background:#fff;border:1px solid #ddd;border-radius:16px;padding:18px;margin-bottom:16px}h1{font-size:1.45rem;margin:0 0 8px}p{color:#555;line-height:1.65}.tag{display:inline-block;background:#eef1f4;padding:4px 8px;border-radius:999px;font-size:.75rem;margin-right:4px}.btn{display:block;text-decoration:none;text-align:center;border-radius:12px;padding:14px;font-weight:800;margin-top:14px;background:#d9480f;color:#fff}.btn.secondary{background:#eef1f4;color:#222}.note{background:#fff7dd;border:1px solid #ead274;border-radius:10px;padding:10px;line-height:1.6}
+body{margin:0;background:#f6f7f8;color:#222;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.wrap{max-width:680px;margin:auto;padding:20px}.card{background:#fff;border:1px solid #ddd;border-radius:16px;padding:18px;margin-bottom:16px}h1{font-size:1.45rem;margin:0 0 8px}p{color:#555;line-height:1.65}.tag{display:inline-block;background:#eef1f4;padding:4px 8px;border-radius:999px;font-size:.75rem;margin-right:4px}.btn{display:block;text-decoration:none;text-align:center;border-radius:12px;padding:14px;font-weight:800;margin-top:14px;background:#d9480f;color:#fff}.note{background:#fff7dd;border:1px solid #ead274;border-radius:10px;padding:10px;line-height:1.6}
 </style>
 </head>
 <body><div class="wrap">
-<div class="card"><h1>☀️ Watch2</h1><p>カメラ高度角は3D光軸ではなく、DeviceOrientation beta を基準にした<strong>2D方式</strong>を主値にします。</p><div class="note"><strong>2D角度定義:</strong> 水平 = 0°。液晶面を手前側へ持ち上げるほど 180° に近づき、そのまま一周を 0〜360° で扱います。</div></div>
-<div class="card"><p><span class="tag">iPhone</span><span class="tag">2D elevation</span><span class="tag">0–360°</span><span class="tag">10秒 / 50ms</span><span class="tag">CSV</span></p><a class="btn" href="iphone-field-beta.html">2D高度角版で測定する</a><a class="btn secondary" href="iphone-field.html">元CONTROL（3D光軸高度）を開く</a><a class="btn secondary" href="iphone-field-flex.html">手持ち対応版を開く</a></div>
-<div class="card"><p>2D版は高度角の入力源だけを変更し、方位・GPS・時刻推定のロジックは元CONTROLを維持します。</p></div>
+<div class="card"><h1>☀️ Watch2</h1><p>以前に精度が高かったと考えられるコードの再現・検証用プロトタイプです。</p><div class="note"><strong>測定ページは1つだけです。</strong> 高精度候補の基準コードを土台に、必要な修正だけを <code>iphone-field.html</code> に統合しています。</div></div>
+<div class="card"><p><span class="tag">iPhone</span><span class="tag">2D elevation 0–360°</span><span class="tag">handheld</span><span class="tag">10秒 / 50ms</span><span class="tag">CSV</span></p><a class="btn" href="iphone-field.html">Watch2で測定する</a></div>
+<div class="card"><p>方位補正・GPS・太陽位置計算・時刻推定は高精度候補の基準コードを維持し、高度角は2D beta 0〜360°、手ブレは診断値として扱います。</p></div>
 </div></body></html>
