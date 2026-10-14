@@ -27,6 +27,13 @@ body{margin:0;background:#f6f7f8;color:#222;font-family:-apple-system,BlinkMacSy
       html=html.replace(from,to);
     };
 
+    // WMM2025はWatch2リポジトリ内の係数を使い、基準コード本体より先に読み込む。
+    replaceOnce(
+      '\n<script>\n(() => {',
+      '\n<script src="wmm.js"><\/script>\n<script>\n(() => {',
+      'WMM loader'
+    );
+
     // 1) 高度角は3D光軸を主値にせず、DeviceOrientation beta の2D角度を0〜360°で扱う。
     //    水平=0°、液晶面を手前へ持ち上げる方向に180°へ近づき、一周を360°で連続処理する。
     replaceOnce(
@@ -68,7 +75,7 @@ body{margin:0;background:#f6f7f8;color:#222;font-family:-apple-system,BlinkMacSy
     if(!stab.held||!gpsOk){ alert('安定性が「測定可」かつGPS精度50m以下になってから開始してください。'); return; }`,
 `    const stab=updateStability();
     const gpsOk=state.location && finite(state.location.accuracy) && state.location.accuracy<=MAX_GPS_ACCURACY;
-    if(!gpsOk||!finite(state.primaryHeading)||!finite(state.cameraElevation)){ alert('GPS精度50m以下で、方位・2D高度角が取得できてから開始してください。'); return; }`,
+    if(!gpsOk||!finite(state.primaryHeading)||!finite(state.cameraElevation)){ alert('GPS精度50m以下で、WMM補正後方位・2D高度角が取得できてから開始してください。'); return; }`,
       'record start gate'
     );
 
@@ -99,14 +106,77 @@ body{margin:0;background:#f6f7f8;color:#222;font-family:-apple-system,BlinkMacSy
       'final validity gate'
     );
 
-    // 表示だけWatch2に統一。推定器・方位補正・GPS・太陽位置計算は基準コードを維持する。
+    // 5) WMM2025磁気偏角補正をデフォルト主方位へ適用する。
+    //    iPhone既存補正後の値はCSVへ残し、表示・10秒平均・時刻推定はWMM補正後を使う。
+    replaceOnce(
+      '<div class="metric"><div class="label">主方位 / iPhone補正後</div><div id="heading" class="value big">--</div></div>',
+      '<div class="metric"><div class="label">主方位 / WMM補正後（真北）</div><div id="heading" class="value big">--</div></div>',
+      'WMM heading label'
+    );
+    replaceOnce(
+      'camera3d:null, primaryHeading:null, cameraElevation:null,',
+      "camera3d:null, baseHeading:null, primaryHeading:null, wmmDeclination:null, wmmModel:'', cameraElevation:null,",
+      'WMM state fields'
+    );
+    replaceOnce(
+`  function correctedIphoneHeading(){
+    if(!finite(state.iosHeading)) return null;
+    return norm(state.iosHeading + (state.flip.active ? 180 : 0) + screenDeg());
+  }
+`,
+`  function correctedIphoneHeading(){
+    if(!finite(state.iosHeading)) return null;
+    return norm(state.iosHeading + (state.flip.active ? 180 : 0) + screenDeg());
+  }
+
+  function currentWmmResult(){
+    if(!window.WMM2025||!WMM2025.loaded||!state.location) return null;
+    const loc=state.location;
+    if(!finite(loc.lat)||!finite(loc.lon)) return null;
+    try{return WMM2025.calculate(loc.lat,loc.lon,finite(loc.altitude)?loc.altitude:0,new Date());}
+    catch(e){return null;}
+  }
+`,
+      'WMM calculation helper'
+    );
+    replaceOnce(
+`    state.camera3d=cameraVectorFromOrientation(state.a,state.b,state.g);
+    state.primaryHeading=correctedIphoneHeading();`,
+`    state.camera3d=cameraVectorFromOrientation(state.a,state.b,state.g);
+    state.baseHeading=correctedIphoneHeading();
+    const wmm=currentWmmResult();
+    state.wmmDeclination=wmm&&finite(wmm.declination)?wmm.declination:null;
+    state.wmmModel=wmm?.model||'';
+    state.primaryHeading=finite(state.baseHeading)&&finite(state.wmmDeclination)?norm(state.baseHeading+state.wmmDeclination):null;`,
+      'WMM primary heading'
+    );
+    replaceOnce(
+      "    $('sourceText').textContent='方位ソース: webkitCompassHeading + 180°ジャンプ/parity補正';",
+      "    $('sourceText').textContent=finite(state.wmmDeclination)?`方位ソース: iPhone補正後 ${fmt(state.baseHeading)} + WMM偏角 ${(state.wmmDeclination>=0?'+':'')+state.wmmDeclination.toFixed(2)}° → 真方位 ${fmt(state.primaryHeading)}`:'方位ソース: WMM2025 / GPS位置・係数読込待ち';",
+      'WMM source display'
+    );
+    replaceOnce(
+      "$('gateText').textContent=!state.location?'GPS待機中':!gpsOk?`GPS精度 ${state.location.accuracy.toFixed(0)}m：50m以下を待っています`:'測定できます。手ブレ・安定性は診断値として記録します。';",
+      "$('gateText').textContent=!state.location?'GPS待機中':!gpsOk?`GPS精度 ${state.location.accuracy.toFixed(0)}m：50m以下を待っています`:!finite(state.wmmDeclination)?'WMM2025偏角の計算待ち':'測定できます。WMM補正後方位を使用し、手ブレ・安定性は診断値として記録します。';",
+      'WMM gate display'
+    );
+    replaceOnce(
+      '      ios_heading_corrected_deg:state.primaryHeading,',
+`      ios_heading_corrected_before_wmm_deg:state.baseHeading,
+      wmm_declination_deg:state.wmmDeclination,
+      wmm_model:state.wmmModel,
+      ios_heading_corrected_deg:state.primaryHeading,`,
+      'WMM sample fields'
+    );
+
+    // 表示だけWatch2に統一。既存の2D高度角・手持ち測定ルールは維持する。
     html=html.replace('<title>太陽ウォッチ iPhone 屋外統合検証 v2</title>','<title>Watch2 — 高精度再現版</title>');
     html=html.replace('<h1 style="margin-top:12px">☀️ iPhone 屋外統合検証 v2</h1>','<h1 style="margin-top:12px">☀️ Watch2 — 高精度再現版</h1>');
     html=html.replace(
       '測定前の安定待ちと測定中の品質監視',
-      '高精度候補コードを基準に、2D高度角0〜360°と手持ち測定を統合'
+      '高精度候補コードを基準に、2D高度角0〜360°・手持ち測定・WMM2025真北補正を統合'
     );
-    html=html.replace('安定性が1.5秒継続すると測定できます。','GPS・方位・2D高度角が取得できれば測定できます。');
+    html=html.replace('安定性が1.5秒継続すると測定できます。','GPS・WMM補正後方位・2D高度角が取得できれば測定できます。');
 
     document.open();
     document.write(html);
