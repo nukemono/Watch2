@@ -98,3 +98,11 @@
   const api={load,calculate,decimalYear,get loaded(){return state.loaded;},get error(){return state.error;},get epoch(){return state.epoch;},get model(){return state.model;}};
   api.ready=load();global.WMM2025=api;
 })(window);
+
+(()=>{
+  if(document.querySelector('script[data-solarwatch-share]'))return;
+  const s=document.createElement('script');
+  s.src='share-data.js';
+  s.dataset.solarwatchShare='1';
+  document.head.appendChild(s);
+})();
