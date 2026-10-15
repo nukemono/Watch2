@@ -3,122 +3,68 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>Watch2 — 高精度再現版</title>
+<title>太陽ウォッチ 屋外統合検証 — canonical姿勢 + WMM</title>
 <style>
-body{margin:0;background:#f6f7f8;color:#222;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.wrap{max-width:720px;margin:40px auto;padding:20px}.card{background:#fff;border:1px solid #ddd;border-radius:14px;padding:18px}.bad{background:#fff0f0;border-color:#e0aaaa}pre{white-space:pre-wrap;word-break:break-word}
+body{margin:0;background:#f4f5f7;color:#20242a;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.wrap{max-width:640px;margin:auto;padding:20px}.card{background:#fff;border:1px solid #dfe3e8;border-radius:16px;padding:16px}.bad{background:#fff0f0;border-color:#e0aaaa}pre{white-space:pre-wrap;word-break:break-word}
 </style>
 </head>
 <body>
-<div class="wrap"><div class="card" id="status">Watch2 高精度再現版を読み込んでいます…</div></div>
+<div class="wrap"><div class="card" id="status">屋外統合検証 canonical姿勢 + WMM を読み込んでいます…</div></div>
 <script>
 (async()=>{
-  const status=document.getElementById('status');
-  try{
-    // 高精度候補の基準コードを immutable commit から読み込む。
-    // Watch2 では派生HTMLを作らず、この1ページに明示された差分だけを適用する。
-    const BASE_URL='https://raw.githubusercontent.com/nukemono/Watch2/80ca9d9581fe6917d17a99316803db82cd429beb/iphone-field.html';
-    let html=await fetch(BASE_URL,{cache:'no-store'}).then(r=>{
-      if(!r.ok) throw new Error('高精度基準コードの取得に失敗: '+r.status);
-      return r.text();
-    });
+ const status=document.getElementById('status');
+ try{
+  let html=await fetch('iphone-field-base.html',{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error('基準コードの取得に失敗: '+r.status);return r.text();});
+  const replaceOnce=(from,to,label)=>{if(!html.includes(from))throw new Error('パッチ対象が見つかりません: '+label);html=html.replace(from,to);};
 
-    const replaceOnce=(from,to,label)=>{
-      if(!html.includes(from)) throw new Error('基準コードとの差分適用に失敗: '+label);
-      html=html.replace(from,to);
-    };
+  html=html.replace('<title>太陽ウォッチ iPhone 屋外統合検証 v2</title>','<title>太陽ウォッチ 屋外統合検証 v3 — iPhone / Android</title>');
+  html=html.replace('<h1 style="margin-top:12px">☀️ iPhone 屋外統合検証 v2</h1>','<h1 style="margin-top:12px">☀️ 屋外統合検証 v3 — iPhone / Android</h1>');
 
-    // WMM2025はWatch2リポジトリ内の係数を使い、基準コード本体より先に読み込む。
-    replaceOnce(
-      '\n<script>\n(() => {',
-      '\n<script src="wmm.js"><\/script>\n<script>\n(() => {',
-      'WMM loader'
-    );
+  replaceOnce(
+   '<div class="metric"><div class="label">主方位 / iPhone補正後</div><div id="heading" class="value big">--</div></div>',
+   '<div class="metric"><div class="label">主方位 / 3D光軸 + WMM（真北）</div><div id="heading" class="value big">--</div></div>',
+   'heading label'
+  );
+  replaceOnce(
+   '<div class="metric"><div class="label">高度角（beta基準 / 水平0°）</div><div id="elevation" class="value big">--</div></div>',
+   '<div class="metric"><div class="label">高度角 0–360°表示（内部 -90〜+90°）</div><div id="elevation" class="value big">--</div></div>',
+   'elevation label'
+  );
 
-    // 1) 高度角は3D光軸を主値にせず、DeviceOrientation beta の2D角度を0〜360°で扱う。
-    //    水平=0°、液晶面を手前へ持ち上げる方向に180°へ近づき、一周を360°で連続処理する。
-    replaceOnce(
-      'state.cameraElevation=state.camera3d && finite(state.camera3d.elevation) ? state.camera3d.elevation : null;',
-      'state.cameraElevation=betaElevation360();',
-      '2D elevation source'
-    );
-    replaceOnce('カメラ高度角 / 3D','カメラ高度角 / 2D','2D elevation label');
-    replaceOnce(
-      'camera3d_elevation_deg:state.camera3d?.elevation??null,',
-      'camera2d_elevation_deg:state.cameraElevation,\n      camera3d_optical_elevation_deg:state.camera3d?.elevation??null,',
-      '2D elevation sample field'
-    );
-    replaceOnce(
-      "if(!finite(sample.ios_heading_corrected_deg)||!finite(sample.camera3d_elevation_deg))return {ok:false,hard:false,reason:'方位または高度角を取得できません'};",
-      "if(!finite(sample.ios_heading_corrected_deg)||!finite(sample.camera2d_elevation_deg))return {ok:false,hard:false,reason:'方位または高度角を取得できません'};",
-      '2D sample validation'
-    );
-    replaceOnce(
-      'const elevations=state.samples.map(s=>s.camera3d_elevation_deg).filter(finite);',
-      'const elevations=state.samples.map(s=>s.camera2d_elevation_deg).filter(finite);',
-      '2D result elevation'
-    );
+  replaceOnce(
+   '\n<script>\n(() => {',
+   '\n<script src="wmm.js"><\/script>\n<script>\n(() => {',
+   'WMM loader'
+  );
 
-    // 2) 手ブレ・安定性は診断値として残すが、測定開始条件にはしない。
-    replaceOnce(
-      'const usable=state.started && gpsOk && finite(state.primaryHeading) && finite(state.cameraElevation) && stab.held;',
-      'const usable=state.started && gpsOk && finite(state.primaryHeading) && finite(state.cameraElevation);',
-      'measurement start usability'
-    );
-    replaceOnce(
-      "$('gateText').textContent=!state.location?'GPS待機中':!gpsOk?`GPS精度 ${state.location.accuracy.toFixed(0)}m：50m以下を待っています`:stab.held?'測定できます。太陽を中央に保って開始してください。':'安定性が1.5秒継続すると測定できます。';",
-      "$('gateText').textContent=!state.location?'GPS待機中':!gpsOk?`GPS精度 ${state.location.accuracy.toFixed(0)}m：50m以下を待っています`:'測定できます。手ブレ・安定性は診断値として記録します。';",
-      'measurement gate text'
-    );
-    replaceOnce(
-`    const stab=updateStability();
-    const gpsOk=state.location && finite(state.location.accuracy) && state.location.accuracy<=MAX_GPS_ACCURACY;
-    if(!stab.held||!gpsOk){ alert('安定性が「測定可」かつGPS精度50m以下になってから開始してください。'); return; }`,
-`    const stab=updateStability();
-    const gpsOk=state.location && finite(state.location.accuracy) && state.location.accuracy<=MAX_GPS_ACCURACY;
-    if(!gpsOk||!finite(state.primaryHeading)||!finite(state.cameraElevation)){ alert('GPS精度50m以下で、WMM補正後方位・2D高度角が取得できてから開始してください。'); return; }`,
-      'record start gate'
-    );
+  replaceOnce(
+   "  const DB_NAME = 'solarwatch_iphone_field_v1', STORE = 'sessions';",
+   `  const ESTIMATION_MAX_AZ_ERROR_DEG = 30;
+  const ESTIMATION_MAX_EL_ERROR_DEG = 20;
+  const ESTIMATION_MAX_RESIDUAL_DEG = 20;
+  const HEADING_ANCHOR_MAX_TILT_DEG = 35;
+  const HEADING_ANCHOR_MIN_HORIZONTAL = 0.75;
+  const HEADING_ANCHOR_SMOOTHING = 0.2;
+  const HEADING_ANCHOR_LOCK_SAMPLES = 5;
+  const HEADING_ANCHOR_MAX_ROTATION_DEG_S = 8;
+  const DB_NAME = 'solarwatch_iphone_field_v1', STORE = 'sessions';`,
+   'canonical constants'
+  );
 
-    // 3) 測定中の揺れで10秒測定を中断しない。SD・回転速度・readinessはCSVに残す。
-    replaceOnce(
-`      const q=sampleQuality(sample);
-      if(q.hard){ state.recordAbortReason=q.reason; finishRecord(true); return; }
-      if(!q.ok){
-        if(state.recordUnstableSince===null)state.recordUnstableSince=performance.now();
-        if(performance.now()-state.recordUnstableSince>=RECORD_UNSTABLE_GRACE_MS){ state.recordAbortReason=q.reason; finishRecord(true); return; }
-      }else state.recordUnstableSince=null;`,
-`      // 手持ち測定: 揺れ・回転・方位SDは診断値として保存し、10秒測定は継続する。`,
-      'record instability abort'
-    );
+  replaceOnce(
+   '    a:null,b:null,g:null, iosHeading:null, iosAccuracy:null,',
+   '    a:null,b:null,g:null, absAlpha:null, iosHeading:null, iosAccuracy:null,',
+   'absolute alpha state'
+  );
+  replaceOnce(
+   '    camera3d:null, primaryHeading:null, cameraElevation:null,',
+   `    camera3d:null, displayElevation360:null, cameraElevation:null,
+    baseHeading:null, primaryHeading:null, wmmDeclination:null, wmmModel:'',
+    headingAnchor:{offset:null,count:0,locked:false,absoluteHeading:null},`,
+   'canonical orientation state'
+  );
 
-    // 4) 最終結果も安定性だけでは無効化しない。取得不能・GPS・サンプル不足は維持する。
-    replaceOnce(
-`    if(aborted)reasons.push(state.recordAbortReason||'測定中に端末が不安定になりました');
-    if(state.samples.length<MIN_SAMPLE_COUNT)reasons.push(`+'`サンプル不足 ${state.samples.length}/${MIN_SAMPLE_COUNT}`'+`);
-    if(!finite(hs.sd)||hs.sd>FINAL_HEADING_SD_MAX)reasons.push(`+'`方位SD ${finite(hs.sd)?hs.sd.toFixed(1):\'--\'}°`'+`);
-    if(!finite(es.sd)||es.sd>FINAL_ELEV_SD_MAX)reasons.push(`+'`高度SD ${finite(es.sd)?es.sd.toFixed(1):\'--\'}°`'+`);
-    if(readyRatio<MIN_READY_RATIO)reasons.push(`+'`安定サンプル率 ${(readyRatio*100).toFixed(0)}%`'+`);
-    if(!loc||!finite(loc.accuracy)||loc.accuracy>MAX_GPS_ACCURACY)reasons.push(`+'`GPS精度 ${loc&&finite(loc.accuracy)?loc.accuracy.toFixed(0):\'--\'}m`'+`);`,
-`    if(aborted)reasons.push(state.recordAbortReason||'測定を中断しました');
-    if(state.samples.length<MIN_SAMPLE_COUNT)reasons.push(`+'`サンプル不足 ${state.samples.length}/${MIN_SAMPLE_COUNT}`'+`);
-    if(!finite(hs.mean)||!finite(es.mean))reasons.push('方位または2D高度角の平均を算出できません');
-    if(!loc||!finite(loc.accuracy)||loc.accuracy>MAX_GPS_ACCURACY)reasons.push(`+'`GPS精度 ${loc&&finite(loc.accuracy)?loc.accuracy.toFixed(0):\'--\'}m`'+`);`,
-      'final validity gate'
-    );
-
-    // 5) WMM2025磁気偏角補正をデフォルト主方位へ適用する。
-    //    iPhone既存補正後の値はCSVへ残し、表示・10秒平均・時刻推定はWMM補正後を使う。
-    replaceOnce(
-      '<div class="metric"><div class="label">主方位 / iPhone補正後</div><div id="heading" class="value big">--</div></div>',
-      '<div class="metric"><div class="label">主方位 / WMM補正後（真北）</div><div id="heading" class="value big">--</div></div>',
-      'WMM heading label'
-    );
-    replaceOnce(
-      'camera3d:null, primaryHeading:null, cameraElevation:null,',
-      "camera3d:null, baseHeading:null, primaryHeading:null, wmmDeclination:null, wmmModel:'', cameraElevation:null,",
-      'WMM state fields'
-    );
-    replaceOnce(
+  replaceOnce(
 `  function correctedIphoneHeading(){
     if(!finite(state.iosHeading)) return null;
     return norm(state.iosHeading + (state.flip.active ? 180 : 0) + screenDeg());
@@ -127,64 +73,392 @@ body{margin:0;background:#f6f7f8;color:#222;font-family:-apple-system,BlinkMacSy
 `  function correctedIphoneHeading(){
     if(!finite(state.iosHeading)) return null;
     return norm(state.iosHeading + (state.flip.active ? 180 : 0) + screenDeg());
+  }
+
+  function platformName(){
+    const ua=navigator.userAgent||'';
+    if(/Android/i.test(ua)) return 'Android';
+    if(/iPhone|iPad|iPod/i.test(ua)) return 'iOS';
+    return 'Other';
+  }
+
+  function topVectorFromOrientation(alpha,beta,gamma){
+    if(![alpha,beta,gamma].every(finite)) return null;
+    const a=alpha*rad,b=beta*rad;
+    const ca=Math.cos(a),sa=Math.sin(a),cb=Math.cos(b),sb=Math.sin(b);
+    let east=-sa*cb;
+    let north=ca*cb;
+    let up=sb;
+    const len=Math.hypot(east,north,up);
+    if(!len) return null;
+    east/=len; north/=len; up/=len;
+    const horizontal=Math.hypot(east,north);
+    const rawHeading=horizontal>1e-6?norm(Math.atan2(east,north)*deg+screenDeg()):null;
+    return {east,north,up,horizontal,rawHeading};
+  }
+
+  function canonicalElevationFromDisplay360(displayDeg){
+    if(!finite(displayDeg)) return null;
+    const b=norm(displayDeg)*rad;
+    return Math.asin(Math.max(-1,Math.min(1,-Math.cos(b))))*deg;
+  }
+
+  function currentAbsoluteTopHeading(){
+    if(finite(state.iosHeading)) return norm(state.iosHeading+screenDeg());
+    if(finite(state.absAlpha)) return norm(360-state.absAlpha+screenDeg());
+    return null;
+  }
+
+  function updateHeadingAnchor(){
+    if(state.headingAnchor.locked) return;
+    const top=topVectorFromOrientation(state.a,state.b,state.g);
+    const display=betaElevation360();
+    const absoluteHeading=currentAbsoluteTopHeading();
+    if(!top||!finite(top.rawHeading)||!finite(display)||!finite(absoluteHeading)) return;
+    const tilt=Math.min(display,360-display);
+    const rotation=Math.max(...[state.ra,state.rb,state.rg].filter(finite).map(Math.abs),0);
+    if(tilt>HEADING_ANCHOR_MAX_TILT_DEG||top.horizontal<HEADING_ANCHOR_MIN_HORIZONTAL||rotation>HEADING_ANCHOR_MAX_ROTATION_DEG_S) return;
+
+    const target=norm(cd(absoluteHeading,top.rawHeading));
+    if(!finite(state.headingAnchor.offset)) state.headingAnchor.offset=target;
+    else state.headingAnchor.offset=norm(state.headingAnchor.offset+cd(target,state.headingAnchor.offset)*HEADING_ANCHOR_SMOOTHING);
+    state.headingAnchor.absoluteHeading=absoluteHeading;
+    state.headingAnchor.count++;
+    if(state.headingAnchor.count>=HEADING_ANCHOR_LOCK_SAMPLES) state.headingAnchor.locked=true;
+  }
+
+  function cameraHeadingBeforeWmm(){
+    if(!state.headingAnchor.locked||!state.camera3d||!finite(state.camera3d.rawHeading)||!finite(state.headingAnchor.offset)) return null;
+    return norm(state.camera3d.rawHeading+state.headingAnchor.offset);
   }
 
   function currentWmmResult(){
     if(!window.WMM2025||!WMM2025.loaded||!state.location) return null;
     const loc=state.location;
     if(!finite(loc.lat)||!finite(loc.lon)) return null;
-    try{return WMM2025.calculate(loc.lat,loc.lon,finite(loc.altitude)?loc.altitude:0,new Date());}
-    catch(e){return null;}
+    try{
+      return WMM2025.calculate(loc.lat,loc.lon,finite(loc.altitude)?loc.altitude:0,new Date());
+    }catch(e){
+      return null;
+    }
   }
 `,
-      'WMM calculation helper'
-    );
-    replaceOnce(
-`    state.camera3d=cameraVectorFromOrientation(state.a,state.b,state.g);
-    state.primaryHeading=correctedIphoneHeading();`,
-`    state.camera3d=cameraVectorFromOrientation(state.a,state.b,state.g);
-    state.baseHeading=correctedIphoneHeading();
+   'canonical heading helpers'
+  );
+
+  replaceOnce(
+`  function meanSd(values){
+    const a=values.filter(finite);
+    if(!a.length) return {mean:null,sd:null};
+    const mean=a.reduce((x,y)=>x+y,0)/a.length;
+    const sd=Math.sqrt(a.reduce((s,v)=>s+(v-mean)**2,0)/a.length);
+    return {mean,sd};
+  }
+`,
+`  function meanSd(values){
+    const a=values.filter(finite);
+    if(!a.length) return {mean:null,sd:null};
+    const mean=a.reduce((x,y)=>x+y,0)/a.length;
+    const sd=Math.sqrt(a.reduce((s,v)=>s+(v-mean)**2,0)/a.length);
+    return {mean,sd};
+  }
+
+  function quantile(sorted,q){
+    if(!sorted.length) return null;
+    const pos=(sorted.length-1)*q;
+    const lo=Math.floor(pos),hi=Math.ceil(pos);
+    if(lo===hi) return sorted[lo];
+    return sorted[lo]+(sorted[hi]-sorted[lo])*(pos-lo);
+  }
+
+  function sampleRotation(sample){
+    return Math.max(...[sample.rotation_alpha_deg_s,sample.rotation_beta_deg_s,sample.rotation_gamma_deg_s].filter(finite).map(Math.abs),0);
+  }
+
+  function motionStableSubset(samples){
+    if(samples.length<20) return samples;
+    const rotations=samples.map(sampleRotation).filter(finite).sort((a,b)=>a-b);
+    if(rotations.length<20) return samples;
+    const q1=quantile(rotations,0.25),q3=quantile(rotations,0.75);
+    const iqr=Math.max(0,q3-q1);
+    const limit=q3+1.5*iqr;
+    const filtered=samples.filter(s=>sampleRotation(s)<=limit);
+    return filtered.length>=Math.max(30,Math.floor(samples.length*0.4))?filtered:samples;
+  }
+`,
+   'adaptive motion filter'
+  );
+
+  replaceOnce(
+`  function render(){
+    state.camera3d=cameraVectorFromOrientation(state.a,state.b,state.g);
+    state.primaryHeading=correctedIphoneHeading();
+    state.cameraElevation=normalElevationFromBeta();
+    $('heading').textContent=fmt(state.primaryHeading);
+    $('elevation').textContent=fmt(state.cameraElevation);
+    $('rawHeading').textContent=fmt(state.iosHeading);
+    $('compassAccuracy').textContent=finite(state.iosAccuracy)?'±'+state.iosAccuracy.toFixed(1)+'°':'--';
+    $('beta360').textContent=fmt(betaElevation360());
+    $('camera3dHeading').textContent=state.camera3d?fmt(state.camera3d.rawHeading):'--';
+    $('gpsAccuracy').textContent=state.location?state.location.accuracy.toFixed(1)+' m':'--';
+    const rr=Math.max(...[state.ra,state.rb,state.rg].filter(finite).map(Math.abs),0);
+    $('rotationRate').textContent=fmt(rr,1,'°/s');
+    $('sourceText').textContent='方位ソース: webkitCompassHeading + 180°ジャンプ/parity補正';
+    $('flipText').textContent=\`180°補正: \${state.flip.active?'ON':'OFF'} / toggle \${state.flip.toggleCount} / recovery \${state.flip.recoveryCount}\`;
+    const stab=updateStability();
+    const gpsOk=state.location && finite(state.location.accuracy) && state.location.accuracy<=MAX_GPS_ACCURACY;
+    const sensorOk=finite(state.primaryHeading) && finite(state.cameraElevation);
+    const usable=state.started && state.location && sensorOk;
+    $('recordBtn').disabled=!usable || state.recording;
+    $('gateText').textContent=!state.location?'GPS待機中':!sensorOk?'方位・高度角の取得待ち':stab.held?'測定できます。安定性は良好です。':'測定できます。安定性は参考表示なので、そのまま測定して構いません。';
+    if(finite(state.primaryHeading)) setStatus('sensorStatus','センサー: OK','ok');
+  }
+`,
+`  function render(){
+    state.camera3d=cameraVectorFromOrientation(state.a,state.b,state.g);
+    state.displayElevation360=betaElevation360();
+    state.cameraElevation=state.camera3d&&finite(state.camera3d.elevation)
+      ?state.camera3d.elevation
+      :canonicalElevationFromDisplay360(state.displayElevation360);
+
+    updateHeadingAnchor();
+    state.baseHeading=cameraHeadingBeforeWmm();
     const wmm=currentWmmResult();
     state.wmmDeclination=wmm&&finite(wmm.declination)?wmm.declination:null;
     state.wmmModel=wmm?.model||'';
-    state.primaryHeading=finite(state.baseHeading)&&finite(state.wmmDeclination)?norm(state.baseHeading+state.wmmDeclination):null;`,
-      'WMM primary heading'
-    );
-    replaceOnce(
-      "    $('sourceText').textContent='方位ソース: webkitCompassHeading + 180°ジャンプ/parity補正';",
-      "    $('sourceText').textContent=finite(state.wmmDeclination)?`方位ソース: iPhone補正後 ${fmt(state.baseHeading)} + WMM偏角 ${(state.wmmDeclination>=0?'+':'')+state.wmmDeclination.toFixed(2)}° → 真方位 ${fmt(state.primaryHeading)}`:'方位ソース: WMM2025 / GPS位置・係数読込待ち';",
-      'WMM source display'
-    );
-    replaceOnce(
-      "$('gateText').textContent=!state.location?'GPS待機中':!gpsOk?`GPS精度 ${state.location.accuracy.toFixed(0)}m：50m以下を待っています`:'測定できます。手ブレ・安定性は診断値として記録します。';",
-      "$('gateText').textContent=!state.location?'GPS待機中':!gpsOk?`GPS精度 ${state.location.accuracy.toFixed(0)}m：50m以下を待っています`:!finite(state.wmmDeclination)?'WMM2025偏角の計算待ち':'測定できます。WMM補正後方位を使用し、手ブレ・安定性は診断値として記録します。';",
-      'WMM gate display'
-    );
-    replaceOnce(
-      '      ios_heading_corrected_deg:state.primaryHeading,',
-`      ios_heading_corrected_before_wmm_deg:state.baseHeading,
+    state.primaryHeading=finite(state.baseHeading)&&finite(state.wmmDeclination)
+      ?norm(state.baseHeading+state.wmmDeclination)
+      :null;
+
+    $('heading').textContent=fmt(state.primaryHeading);
+    $('elevation').textContent=fmt(state.displayElevation360);
+    $('rawHeading').textContent=fmt(currentAbsoluteTopHeading());
+    $('compassAccuracy').textContent=finite(state.iosAccuracy)?'±'+state.iosAccuracy.toFixed(1)+'°':'--';
+    $('beta360').textContent=fmt(state.displayElevation360);
+    $('camera3dHeading').textContent=state.camera3d?fmt(state.camera3d.rawHeading):'--';
+    $('gpsAccuracy').textContent=state.location?state.location.accuracy.toFixed(1)+' m':'--';
+    const rr=Math.max(...[state.ra,state.rb,state.rg].filter(finite).map(Math.abs),0);
+    $('rotationRate').textContent=fmt(rr,1,'°/s');
+
+    if(!state.headingAnchor.locked){
+      $('sourceText').textContent=\`方位ソース: \${platformName()} / 北基準取得待ち \${state.headingAnchor.count}/\${HEADING_ANCHOR_LOCK_SAMPLES}\`;
+    }else if(finite(state.wmmDeclination)){
+      $('sourceText').textContent=\`方位ソース: 3Dカメラ光軸 \${fmt(state.baseHeading)} + WMM偏角 \${state.wmmDeclination>=0?'+':''}\${state.wmmDeclination.toFixed(2)}° → 真方位 \${fmt(state.primaryHeading)}\`;
+    }else{
+      $('sourceText').textContent='方位ソース: 3D光軸アンカー済み / WMM2025待ち';
+    }
+    $('flipText').textContent=\`旧iPhone 180°診断: \${state.flip.active?'ON':'OFF'} / anchor \${state.headingAnchor.locked?'LOCK':'LEARNING'}\`;
+
+    const stab=updateStability();
+    const gpsOk=state.location && finite(state.location.accuracy) && state.location.accuracy<=MAX_GPS_ACCURACY;
+    const sensorOk=finite(state.primaryHeading) && finite(state.cameraElevation) && state.cameraElevation>=-90 && state.cameraElevation<=90;
+    const usable=state.started && state.location && gpsOk && sensorOk && state.headingAnchor.locked;
+    $('recordBtn').disabled=!usable || state.recording;
+    $('gateText').textContent=!state.headingAnchor.locked
+      ?'最初に端末を水平に置き、北基準を取得してください。'
+      :!state.location?'GPS待機中'
+      :!gpsOk?\`GPS精度 \${state.location.accuracy.toFixed(0)}m：50m以下を待っています\`
+      :!finite(state.wmmDeclination)?'WMM2025偏角の計算待ち'
+      :!sensorOk?'3D方位・canonical高度の取得待ち'
+      :stab.held?'測定できます。高度表示は0–360°、内部推定は-90〜+90°です。'
+      :'測定できます。手振れは10秒データから適応的に外れ値を弱めます。';
+    if(sensorOk) setStatus('sensorStatus','センサー: OK','ok');
+  }
+`,
+   'canonical render'
+  );
+
+  replaceOnce(
+`  function onOrientation(e){
+    state.a=finite(e.alpha)?e.alpha:null;
+    state.b=finite(e.beta)?e.beta:null;
+    state.g=finite(e.gamma)?e.gamma:null;
+    state.iosHeading=finite(e.webkitCompassHeading)?norm(e.webkitCompassHeading):state.iosHeading;
+    state.iosAccuracy=finite(e.webkitCompassAccuracy)?e.webkitCompassAccuracy:state.iosAccuracy;
+    if(finite(state.iosHeading)) updateIphoneFlip(state.iosHeading);
+    render();
+  }
+`,
+`  function onOrientation(e){
+    state.a=finite(e.alpha)?e.alpha:null;
+    state.b=finite(e.beta)?e.beta:null;
+    state.g=finite(e.gamma)?e.gamma:null;
+    state.iosHeading=finite(e.webkitCompassHeading)?norm(e.webkitCompassHeading):state.iosHeading;
+    state.iosAccuracy=finite(e.webkitCompassAccuracy)?e.webkitCompassAccuracy:state.iosAccuracy;
+    if(e.absolute===true&&finite(e.alpha)) state.absAlpha=e.alpha;
+    if(finite(state.iosHeading)) updateIphoneFlip(state.iosHeading);
+    render();
+  }
+
+  function onAbsoluteOrientation(e){
+    if(finite(e.alpha)) state.absAlpha=e.alpha;
+    render();
+  }
+`,
+   'cross platform orientation events'
+  );
+
+  replaceOnce(
+`      if(!state.started){
+        window.addEventListener('deviceorientation',onOrientation,true);
+        window.addEventListener('devicemotion',onMotion,true);
+        state.started=true;
+      }
+`,
+`      if(!state.started){
+        state.headingAnchor={offset:null,count:0,locked:false,absoluteHeading:null};
+        window.addEventListener('deviceorientation',onOrientation,true);
+        window.addEventListener('deviceorientationabsolute',onAbsoluteOrientation,true);
+        window.addEventListener('devicemotion',onMotion,true);
+        if(platformName()==='Android'&&$('deviceLabel').value==='iPhone1') $('deviceLabel').value='Android1';
+        state.started=true;
+      }
+`,
+   'absolute orientation registration'
+  );
+
+  replaceOnce(
+   '      ios_heading_corrected_deg:state.primaryHeading,',
+`      platform:platformName(),
+      absolute_top_heading_deg:currentAbsoluteTopHeading(),
+      heading_anchor_locked:state.headingAnchor.locked,
+      heading_anchor_offset_deg:state.headingAnchor.offset,
+      heading_anchor_count:state.headingAnchor.count,
+      ios_heading_corrected_before_wmm_deg:state.baseHeading,
+      camera_heading_before_wmm_deg:state.baseHeading,
       wmm_declination_deg:state.wmmDeclination,
       wmm_model:state.wmmModel,
       ios_heading_corrected_deg:state.primaryHeading,`,
-      'WMM sample fields'
-    );
+   'canonical heading sample fields'
+  );
 
-    // 表示だけWatch2に統一。既存の2D高度角・手持ち測定ルールは維持する。
-    html=html.replace('<title>太陽ウォッチ iPhone 屋外統合検証 v2</title>','<title>Watch2 — 高精度再現版</title>');
-    html=html.replace('<h1 style="margin-top:12px">☀️ iPhone 屋外統合検証 v2</h1>','<h1 style="margin-top:12px">☀️ Watch2 — 高精度再現版</h1>');
-    html=html.replace(
-      '測定前の安定待ちと測定中の品質監視',
-      '高精度候補コードを基準に、2D高度角0〜360°・手持ち測定・WMM2025真北補正を統合'
-    );
-    html=html.replace('安定性が1.5秒継続すると測定できます。','GPS・WMM補正後方位・2D高度角が取得できれば測定できます。');
+  replaceOnce(
+`      beta_elevation_360_deg:betaElevation360(),
+      camera3d_raw_heading_deg:state.camera3d?.rawHeading??null,
+      phone_elevation_deg:state.cameraElevation,
+      camera3d_optical_elevation_deg:state.camera3d?.elevation??null,`,
+`      beta_elevation_360_deg:state.displayElevation360,
+      elevation_display_360_deg:state.displayElevation360,
+      canonical_elevation_deg:state.cameraElevation,
+      camera3d_raw_heading_deg:state.camera3d?.rawHeading??null,
+      phone_elevation_deg:state.displayElevation360,
+      camera3d_optical_elevation_deg:state.camera3d?.elevation??null,`,
+   'canonical elevation sample fields'
+  );
 
-    document.open();
-    document.write(html);
-    document.close();
-  }catch(e){
-    status.className='card bad';
-    status.innerHTML='<strong>Watch2 読み込みエラー</strong><pre>'+String(e&&e.stack||e)+'</pre>';
+  replaceOnce(
+   "    if(!finite(sample.ios_heading_corrected_deg)||!finite(sample.phone_elevation_deg))return {ok:false,hard:false,reason:'方位または高度角を取得できません'};",
+   "    if(!finite(sample.ios_heading_corrected_deg)||!finite(sample.canonical_elevation_deg))return {ok:false,hard:false,reason:'方位またはcanonical高度角を取得できません'};",
+   'canonical sample validation'
+  );
+
+  replaceOnce(
+`  function estimateTime(obsAz,obsEl,when,lat,lon){
+    const y=when.getFullYear(),m=when.getMonth(),d=when.getDate();
+    let best=null;
+    for(let minute=0; minute<1440; minute++){
+      const t=new Date(y,m,d,0,minute,0,0);
+      const s=sunPosition(t,lat,lon);
+      if(s.elevation<-8) continue;
+      const dist=angularDistance(obsAz,obsEl,s.azimuth,s.elevation);
+      if(!best||dist<best.dist) best={time:t,sun:s,dist};
+    }
+    if(!best) return null;
+    let fine=best;
+    for(let sec=-90;sec<=90;sec++){
+      const t=new Date(best.time.getTime()+sec*1000);
+      const s=sunPosition(t,lat,lon);
+      const dist=angularDistance(obsAz,obsEl,s.azimuth,s.elevation);
+      if(dist<fine.dist) fine={time:t,sun:s,dist};
+    }
+    return fine;
   }
+`,
+`  function estimateTime(obsAz,obsEl,when,lat,lon){
+    if(!finite(obsAz)||!finite(obsEl)||obsEl<-90||obsEl>90) return null;
+    const y=when.getFullYear(),m=when.getMonth(),d=when.getDate();
+    const acceptable=s=>{
+      const azError=Math.abs(cd(obsAz,s.azimuth));
+      const elError=Math.abs(obsEl-s.elevation);
+      return azError<=ESTIMATION_MAX_AZ_ERROR_DEG&&elError<=ESTIMATION_MAX_EL_ERROR_DEG;
+    };
+    let best=null;
+    for(let minute=0; minute<1440; minute++){
+      const t=new Date(y,m,d,0,minute,0,0);
+      const s=sunPosition(t,lat,lon);
+      if(s.elevation<-8||!acceptable(s)) continue;
+      const dist=angularDistance(obsAz,obsEl,s.azimuth,s.elevation);
+      if(!best||dist<best.dist) best={time:t,sun:s,dist};
+    }
+    if(!best) return null;
+    let fine=best;
+    for(let sec=-90;sec<=90;sec++){
+      const t=new Date(best.time.getTime()+sec*1000);
+      const s=sunPosition(t,lat,lon);
+      if(!acceptable(s)) continue;
+      const dist=angularDistance(obsAz,obsEl,s.azimuth,s.elevation);
+      if(dist<fine.dist) fine={time:t,sun:s,dist};
+    }
+    return fine.dist<=ESTIMATION_MAX_RESIDUAL_DEG?fine:null;
+  }
+`,
+   'estimation plausibility gates'
+  );
+
+  replaceOnce(
+`    const actual=new Date();
+    const headings=state.samples.map(s=>s.ios_heading_corrected_deg).filter(finite);
+    const elevations=state.samples.map(s=>s.phone_elevation_deg).filter(finite);
+    const hs=circularStats(headings), es=meanSd(elevations);
+    const loc=state.location;
+`,
+`    const actual=new Date();
+    const estimationSamples=motionStableSubset(state.samples);
+    const headings=estimationSamples.map(s=>s.ios_heading_corrected_deg).filter(finite);
+    const elevations=estimationSamples.map(s=>s.canonical_elevation_deg).filter(finite);
+    const hs=circularStats(headings), es=meanSd(elevations);
+    const loc=state.location;
+`,
+   'stable canonical estimation samples'
+  );
+
+  replaceOnce(
+`    const valid=reasons.length===0;
+    // 品質判定とは独立して、方位・高度・位置があれば推定時刻は必ず計算して参考表示する。
+    const est=(loc&&finite(hs.mean)&&finite(es.mean))?estimateTime(hs.mean,es.mean,actual,loc.lat,loc.lon):null;
+    const actualSun=loc?sunPosition(actual,loc.lat,loc.lon):null;
+`,
+`    const est=(loc&&finite(hs.mean)&&finite(es.mean))?estimateTime(hs.mean,es.mean,actual,loc.lat,loc.lon):null;
+    if(loc&&finite(hs.mean)&&finite(es.mean)&&!est) reasons.push('観測方位・高度が当日の太陽軌道と許容範囲内で一致しません');
+    const valid=reasons.length===0;
+    const actualSun=loc?sunPosition(actual,loc.lat,loc.lon):null;
+`,
+   'estimation failure quality'
+  );
+
+  replaceOnce(
+`      location:loc,quality:{valid,reason:reasons.join(' / '),ready_ratio:readyRatio,sample_count:state.samples.length,heading_sd_deg:hs.sd,elevation_sd_deg:es.sd,stability_advisory_only:true},
+      summary:{heading_mean_deg:hs.mean,heading_sd_deg:hs.sd,elevation_mean_deg:es.mean,elevation_sd_deg:es.sd,sample_count:state.samples.length},
+`,
+`      location:loc,quality:{valid,reason:reasons.join(' / '),ready_ratio:readyRatio,sample_count:state.samples.length,estimation_sample_count:estimationSamples.length,heading_sd_deg:hs.sd,elevation_sd_deg:es.sd,stability_advisory_only:true},
+      summary:{heading_mean_deg:hs.mean,heading_sd_deg:hs.sd,elevation_mean_deg:es.mean,elevation_sd_deg:es.sd,sample_count:state.samples.length,estimation_sample_count:estimationSamples.length,elevation_coordinate:'canonical_-90_to_90'},
+`,
+   'estimation sample metadata'
+  );
+
+  replaceOnce(
+   '  renderHistory();\n})();',
+   "  if(window.WMM2025&&WMM2025.ready){WMM2025.ready.then(()=>render()).catch(()=>render());}\n  renderHistory();\n})();",
+   'WMM ready rerender'
+  );
+
+  html=html.replace(
+   'iPhone向けの180°ジャンプ補正・parity recovery・50ms固定サンプリング・IndexedDB保存に加え、<strong>測定前の安定待ちと測定中の品質監視</strong>を統合しています。',
+   'iPhone / Android共通で、<strong>高度は0〜360°表示・内部はcanonical -90〜+90°</strong>、方位は水平時に北基準を固定して3Dカメラ光軸へ引き継ぎ、WMM2025で真北補正します。10秒測定では高回転サンプルを適応的に除外し、太陽軌道と整合しない推定値は採用しません。'
+  );
+
+  document.open();document.write(html);document.close();
+ }catch(e){status.className='card bad';status.innerHTML='<strong>統合検証 読み込みエラー</strong><pre>'+String(e&&e.stack||e)+'</pre>';}
 })();
 </script>
 </body>
