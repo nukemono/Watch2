@@ -424,7 +424,6 @@ body{margin:0;background:#f4f5f7;color:#20242a;font-family:-apple-system,BlinkMa
 
   replaceOnce(
 `    const valid=reasons.length===0;
-    // 品質判定とは独立して、方位・高度・位置があれば推定時刻は必ず計算して参考表示する。
     const est=(loc&&finite(hs.mean)&&finite(es.mean))?estimateTime(hs.mean,es.mean,actual,loc.lat,loc.lon):null;
     const actualSun=loc?sunPosition(actual,loc.lat,loc.lon):null;
 `,
