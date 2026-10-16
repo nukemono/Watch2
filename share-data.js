@@ -173,3 +173,20 @@
   s.dataset.watch2Analysis='1';
   document.head.appendChild(s);
 })();
+
+(()=>{
+  function simplifySolarAim(){
+    const hiddenMetricIds=['rawHeading','compassAccuracy','beta360','camera3dHeading','gpsAccuracy','rotationRate'];
+    for(const id of hiddenMetricIds){
+      const el=document.getElementById(id);
+      const metric=el&&el.closest('.metric');
+      if(metric) metric.classList.add('hidden');
+    }
+    for(const id of ['sourceText','flipText']){
+      const el=document.getElementById(id);
+      if(el) el.classList.add('hidden');
+    }
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',simplifySolarAim,{once:true});
+  else simplifySolarAim();
+})();
