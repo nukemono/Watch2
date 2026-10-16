@@ -165,3 +165,11 @@
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',inject,{once:true});
   else inject();
 })();
+
+(()=>{
+  if(document.querySelector('script[data-watch2-analysis]'))return;
+  const s=document.createElement('script');
+  s.src='watch2-analysis.js';
+  s.dataset.watch2Analysis='1';
+  document.head.appendChild(s);
+})();
